@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="128" fill="#2563eb"/>
+  <g transform="translate(106, 106) scale(0.5859375)" fill="none" stroke="#ffffff" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Biểu tượng viên thuốc -->
+    <path d="m105 105 302 302a70 70 0 0 1-99 99L6 204a70 70 0 0 1 99-99Z"/>
+    <path d="m85 85 70 70"/>
+    <path d="m180 180 152 152"/>
+  </g>
+</svg>

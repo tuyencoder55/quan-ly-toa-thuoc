@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overscroll-behavior-y: contain;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Tối ưu cuộn mượt cho danh sách trên điện thoại */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Nút bấm có hiệu ứng bấm nảy */
+.active-press {
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+.active-press:active {
+  transform: scale(0.97);
+  opacity: 0.9;
+}
