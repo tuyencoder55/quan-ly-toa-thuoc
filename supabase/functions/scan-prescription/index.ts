@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Edge Function: scan-prescription
 // Nhiệm vụ: Nhận ảnh đã nén từ frontend -> Gọi Gemini Flash với tốc độ nhanh nhất -> Trả về JSON 3 trường + danh sách thuốc.
 // Cơ chế thông minh: Tự động thử các model Flash dự phòng nếu Google AI báo 503 (quá tải) hoặc 404 (model cũ).
