@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import { normalizeName } from '../lib/normalizeName';
 import { Prescription } from '../types';
@@ -9,7 +8,6 @@ import {
   X,
   Pill,
   Calendar,
-  LogOut,
   ChevronRight,
   RefreshCw,
   FileText
@@ -23,8 +21,6 @@ interface HomeProps {
 const PAGE_SIZE = 20;
 
 export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescription }) => {
-  const { user, signOut } = useAuth();
-
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -103,10 +99,10 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
             </div>
             <div>
               <h1 className="font-bold text-base text-slate-900 leading-tight">
-                Toa Thuốc
+                Sổ Toa Thuốc
               </h1>
-              <p className="text-[11px] text-slate-400 truncate max-w-[180px]">
-                {user?.email}
+              <p className="text-[11px] text-slate-400">
+                Lưu trữ & tra cứu bằng AI
               </p>
             </div>
           </div>
@@ -119,13 +115,6 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
               title="Làm mới"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            </button>
-            <button
-              onClick={() => signOut()}
-              className="p-2 text-slate-400 hover:text-red-600 rounded-full active-press"
-              title="Đăng xuất"
-            >
-              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -256,3 +245,4 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
     </div>
   );
 };
+
