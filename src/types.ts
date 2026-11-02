@@ -12,6 +12,7 @@ export interface Prescription {
   customer_name: string;        // Tên khách hàng (trường quan trọng nhất)
   name_search: string;          // Tên đã bỏ dấu tiếng Việt để tìm kiếm
   birth_date: string | null;    // Ngày sinh YYYY-MM-DD
+  phone: string | null;         // Số điện thoại liên hệ
   address: string | null;       // Địa chỉ
   medicines: MedicineItem[];    // Danh sách thuốc trong đơn
   image_path: string | null;    // Đường dẫn ảnh đại diện chính trong Storage
@@ -24,6 +25,7 @@ export interface Prescription {
 export interface ScanResult {
   customer_name: string | null;
   birth_date: string | null;
+  phone: string | null;
   address: string | null;
   medicines: MedicineItem[];
 }

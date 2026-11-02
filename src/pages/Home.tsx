@@ -42,10 +42,11 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
           .order('created_at', { ascending: false })
           .range(pageIndex * PAGE_SIZE, (pageIndex + 1) * PAGE_SIZE - 1);
 
-        // Tìm kiếm không dấu theo name_search
+        // Tìm kiếm không dấu theo name_search HOẶC tìm theo số điện thoại (phone)
         const cleaned = normalizeName(search);
+        const rawSearch = search.trim();
         if (cleaned) {
-          query = query.ilike('name_search', `%${cleaned}%`);
+          query = query.or(`name_search.ilike.%${cleaned}%,phone.ilike.%${rawSearch}%`);
         }
 
         const { data, count, error } = await query;
@@ -129,7 +130,7 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Tìm theo tên khách hàng (vd: Quý, Dũng...)"
+              placeholder="Tìm theo tên KH hoặc số điện thoại (vd: Quý, 0901...)"
               className="w-full pl-10 pr-9 py-2.5 text-sm bg-slate-100 hover:bg-slate-200/60 focus:bg-white border border-transparent focus:border-blue-500 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-800"
             />
             {searchTerm && (
@@ -206,6 +207,11 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
                           <Pill className="w-3 h-3" />
                           {medCount} loại thuốc
+                        </span>
+                      )}
+                      {item.phone && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                          📞 {item.phone}
                         </span>
                       )}
                       {Array.isArray(item.image_paths) && item.image_paths.length > 1 && (

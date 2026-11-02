@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Maximize2,
   Calendar,
+  Phone,
   MapPin,
   User as UserIcon,
   FileText,
@@ -52,6 +53,7 @@ export const Confirm: React.FC<ConfirmProps> = ({
   // Dữ liệu form
   const [customerName, setCustomerName] = useState('');
   const [birthDate, setBirthDate] = useState('');
+  const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [medicines, setMedicines] = useState<MedicineItem[]>([]);
   const [note, setNote] = useState('');
@@ -140,6 +142,7 @@ export const Confirm: React.FC<ConfirmProps> = ({
         setScanStatus('success');
         if (data.customer_name) setCustomerName(data.customer_name);
         if (data.birth_date) setBirthDate(data.birth_date);
+        if (data.phone) setPhone(data.phone);
         if (data.address) setAddress(data.address);
         if (Array.isArray(data.medicines)) setMedicines(data.medicines);
 
@@ -253,6 +256,7 @@ export const Confirm: React.FC<ConfirmProps> = ({
         customer_name: customerName.trim(),
         name_search: normalizeName(customerName),
         birth_date: birthDate ? birthDate : null,
+        phone: phone.trim() || null,
         address: address.trim() || null,
         medicines: medicines.filter((m) => m.name.trim().length > 0),
         image_path: uploadedPaths[0] || null, // Ảnh đại diện
@@ -480,17 +484,31 @@ export const Confirm: React.FC<ConfirmProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                Địa chỉ
+                <Phone className="w-3.5 h-3.5 text-slate-500" />
+                Số điện thoại
               </label>
               <input
-                type="text"
-                placeholder="Xã/Huyện/Tỉnh..."
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                type="tel"
+                placeholder="Ví dụ: 0912345678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 className="w-full text-sm font-medium px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-slate-500" />
+              Địa chỉ
+            </label>
+            <input
+              type="text"
+              placeholder="Xã/Huyện/Tỉnh..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-full text-sm font-medium px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-800"
+            />
           </div>
 
           <hr className="border-slate-100" />

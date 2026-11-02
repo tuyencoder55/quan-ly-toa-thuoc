@@ -67,6 +67,7 @@ serve(async (req: Request) => {
     const systemPrompt = `Đây là ảnh đơn thuốc/toa thuốc tiếng Việt. Hãy đọc và trích xuất đúng các thông tin:
 - customer_name: Họ và tên của khách hàng / bệnh nhân (giữ nguyên dấu tiếng Việt, viết hoa chuẩn). Bỏ qua chức danh bác sĩ, người kê đơn.
 - birth_date: Ngày sinh (định dạng YYYY-MM-DD). Nếu trên toa ghi ngày/tháng/năm hãy chuyển thành YYYY-MM-DD.
+- phone: Số điện thoại liên hệ của khách hàng nếu có trên toa (ví dụ: 0901234567). Nếu không có hoặc bị che sao (ví dụ: **********), để null.
 - address: Địa chỉ liên hệ của khách hàng.
 - medicines: Danh sách các thuốc trong đơn gồm:
     * name: Tên thuốc
@@ -119,6 +120,7 @@ Không tự bịa thông tin. Trường nào không có hoặc không rõ chữ 
             const sanitized = {
               customer_name: parsedResult.customer_name ? String(parsedResult.customer_name).trim() : null,
               birth_date: parsedResult.birth_date ? String(parsedResult.birth_date).trim() : null,
+              phone: parsedResult.phone ? String(parsedResult.phone).trim() : null,
               address: parsedResult.address ? String(parsedResult.address).trim() : null,
               medicines: Array.isArray(parsedResult.medicines)
                 ? parsedResult.medicines

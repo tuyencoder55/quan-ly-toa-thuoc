@@ -8,6 +8,7 @@ import { ImageViewerModal } from '../components/ImageViewerModal';
 import {
   ArrowLeft,
   Calendar,
+  Phone,
   MapPin,
   Clock,
   Edit2,
@@ -55,6 +56,7 @@ export const Detail: React.FC<DetailProps> = ({
   // Form chỉnh sửa
   const [editCustomerName, setEditCustomerName] = useState('');
   const [editBirthDate, setEditBirthDate] = useState('');
+  const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editMedicines, setEditMedicines] = useState<MedicineItem[]>([]);
   const [editNote, setEditNote] = useState('');
@@ -82,6 +84,7 @@ export const Detail: React.FC<DetailProps> = ({
 
       setEditCustomerName(data.customer_name);
       setEditBirthDate(data.birth_date || '');
+      setEditPhone(data.phone || '');
       setEditAddress(data.address || '');
       setEditMedicines(Array.isArray(data.medicines) ? data.medicines : []);
       setEditNote(data.note || '');
@@ -111,8 +114,8 @@ export const Detail: React.FC<DetailProps> = ({
         setSignedImageUrls([]);
       }
 
-      // Tải lịch sử các toa khác của cùng khách hàng này
-      loadHistory(data.name_search, data.id);
+      // Tải lịch sử các toa khác của cùng khách hàng này (theo tên hoặc số điện thoại)
+      loadHistory(data.name_search, data.phone, data.id);
     } catch (err: any) {
       console.error('Lỗi khi tải chi tiết toa:', err);
       setErrorMessage(err.message || 'Không thể tải thông tin toa thuốc');
@@ -122,16 +125,25 @@ export const Detail: React.FC<DetailProps> = ({
   };
 
   // Tải lịch sử các toa khác của khách này
-  const loadHistory = async (nameSearch: string, currentId: string) => {
-    if (!nameSearch) return;
+  const loadHistory = async (nameSearch: string, phone: string | null, currentId: string) => {
+    if (!nameSearch && !phone) return;
     setLoadingHistory(true);
     try {
-      const { data, error } = await supabase
+      let historyQuery = supabase
         .from('prescriptions')
         .select('*')
-        .eq('name_search', nameSearch)
         .neq('id', currentId)
         .order('created_at', { ascending: false });
+
+      if (phone && nameSearch) {
+        historyQuery = historyQuery.or(`name_search.eq.${nameSearch},phone.eq.${phone}`);
+      } else if (nameSearch) {
+        historyQuery = historyQuery.eq('name_search', nameSearch);
+      } else if (phone) {
+        historyQuery = historyQuery.eq('phone', phone);
+      }
+
+      const { data, error } = await historyQuery;
 
       if (!error && data) {
         setHistoryItems(data);
@@ -163,6 +175,7 @@ export const Detail: React.FC<DetailProps> = ({
           customer_name: editCustomerName.trim(),
           name_search: normalizeName(editCustomerName),
           birth_date: editBirthDate || null,
+          phone: editPhone.trim() || null,
           address: editAddress.trim() || null,
           medicines: editMedicines.filter((m) => m.name.trim().length > 0),
           note: editNote.trim() || null,
@@ -563,15 +576,28 @@ export const Detail: React.FC<DetailProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Địa chỉ
+                    Số điện thoại
                   </label>
                   <input
-                    type="text"
-                    value={editAddress}
-                    onChange={(e) => setEditAddress(e.target.value)}
+                    type="tel"
+                    placeholder="0912345678"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
                     className="w-full text-sm px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Địa chỉ
+                </label>
+                <input
+                  type="text"
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  className="w-full text-sm px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
               </div>
 
               <hr className="border-slate-100" />
@@ -629,6 +655,29 @@ export const Detail: React.FC<DetailProps> = ({
                   </div>
                 </div>
               </div>
+
+              {prescription.phone && (
+                <div className="p-2.5 bg-blue-50/60 rounded-xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-blue-600 shrink-0" />
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Số điện thoại</span>
+                      <a
+                        href={`tel:${prescription.phone}`}
+                        className="font-bold text-blue-700 hover:underline"
+                      >
+                        {prescription.phone}
+                      </a>
+                    </div>
+                  </div>
+                  <a
+                    href={`tel:${prescription.phone}`}
+                    className="px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[11px] font-semibold active-press"
+                  >
+                    Gọi ngay
+                  </a>
+                </div>
+              )}
 
               {prescription.address && (
                 <div className="p-2.5 bg-slate-50 rounded-xl flex items-start gap-2 text-xs">
