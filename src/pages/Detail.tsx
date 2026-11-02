@@ -16,23 +16,41 @@ import {
   Check,
   X,
   Maximize2,
-  AlertCircle
+  AlertCircle,
+  History,
+  ChevronRight,
+  Pill,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface DetailProps {
   prescriptionId: string;
   onBack: () => void;
   onDeleted: () => void;
+  onSelectOtherPrescription?: (id: string) => void;
 }
 
-export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDeleted }) => {
+const MAX_PHOTOS = 20;
+
+export const Detail: React.FC<DetailProps> = ({
+  prescriptionId,
+  onBack,
+  onDeleted,
+  onSelectOtherPrescription,
+}) => {
   const [prescription, setPrescription] = useState<Prescription | null>(null);
-  const [signedImageUrl, setSignedImageUrl] = useState<string | null>(null);
+  const [signedImageUrls, setSignedImageUrls] = useState<string[]>([]);
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Lịch sử các toa khác của cùng khách hàng này
+  const [historyItems, setHistoryItems] = useState<Prescription[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Form chỉnh sửa
   const [editCustomerName, setEditCustomerName] = useState('');
@@ -44,10 +62,11 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
   // Modal phóng to ảnh
   const [showImageModal, setShowImageModal] = useState(false);
 
-  // Input thay đổi ảnh
-  const replacePhotoInputRef = useRef<HTMLInputElement>(null);
+  // Input thêm ảnh mới
+  const addCameraInputRef = useRef<HTMLInputElement>(null);
+  const addGalleryInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Tải thông tin toa thuốc và tạo Signed URL tạm thời (60s) cho ảnh
+  // 1. Tải thông tin toa thuốc và tạo Signed URL cho toàn bộ danh sách ảnh
   const fetchPrescription = async () => {
     setLoading(true);
     setErrorMessage(null);
@@ -67,21 +86,60 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
       setEditMedicines(Array.isArray(data.medicines) ? data.medicines : []);
       setEditNote(data.note || '');
 
-      // Tạo Signed URL 60s từ bucket private
-      if (data.image_path) {
-        const { data: signData, error: signError } = await supabase.storage
-          .from('prescriptions')
-          .createSignedUrl(data.image_path, 60);
-
-        if (!signError && signData) {
-          setSignedImageUrl(signData.signedUrl);
-        }
+      // Lấy danh sách đường dẫn ảnh (hỗ trợ cả image_paths mảng và image_path đơn cũ)
+      let paths: string[] = [];
+      if (Array.isArray(data.image_paths) && data.image_paths.length > 0) {
+        paths = data.image_paths;
+      } else if (data.image_path) {
+        paths = [data.image_path];
       }
+
+      // Tạo Signed URL 60s cho tất cả các ảnh
+      if (paths.length > 0) {
+        const signedList: string[] = [];
+        for (const p of paths) {
+          const { data: signData } = await supabase.storage
+            .from('prescriptions')
+            .createSignedUrl(p, 60);
+          if (signData?.signedUrl) {
+            signedList.push(signData.signedUrl);
+          }
+        }
+        setSignedImageUrls(signedList);
+        setActivePhotoIndex(0);
+      } else {
+        setSignedImageUrls([]);
+      }
+
+      // Tải lịch sử các toa khác của cùng khách hàng này
+      loadHistory(data.name_search, data.id);
     } catch (err: any) {
       console.error('Lỗi khi tải chi tiết toa:', err);
       setErrorMessage(err.message || 'Không thể tải thông tin toa thuốc');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Tải lịch sử các toa khác của khách này
+  const loadHistory = async (nameSearch: string, currentId: string) => {
+    if (!nameSearch) return;
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('prescriptions')
+        .select('*')
+        .eq('name_search', nameSearch)
+        .neq('id', currentId)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setHistoryItems(data);
+      }
+    } catch (err) {
+      console.warn('Lỗi tải lịch sử:', err);
+    } finally {
+      setLoadingHistory(false);
     }
   };
 
@@ -123,68 +181,120 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
     }
   };
 
-  // 3. Thay ảnh toa thuốc mới (nén ảnh, upload, xóa ảnh cũ trong Storage)
-  const handleReplacePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !prescription) return;
+  // 3. Thêm ảnh mới vào toa hiện tại (tối đa 20 ảnh)
+  const handleAddPhotos = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !prescription) return;
+
+    const currentPaths = Array.isArray(prescription.image_paths) ? prescription.image_paths : [];
+    if (currentPaths.length + files.length > MAX_PHOTOS) {
+      alert(`Toa thuốc này đã có ${currentPaths.length} ảnh. Bạn chỉ có thể lưu tối đa ${MAX_PHOTOS} ảnh.`);
+      return;
+    }
 
     setIsSaving(true);
     setErrorMessage(null);
 
     try {
-      // Nén ảnh mới
-      const newBlob = await compressImage(file, 1280, 0.7);
-      const newPath = `${prescription.user_id}/${crypto.randomUUID()}.jpg`;
+      const newPaths: string[] = [];
 
-      // Upload ảnh mới
-      const { error: uploadError } = await supabase.storage
-        .from('prescriptions')
-        .upload(newPath, newBlob, {
-          contentType: 'image/jpeg',
-          cacheControl: '3600',
-        });
+      for (const file of files) {
+        const compressedBlob = await compressImage(file, 1280, 0.7);
+        const newPath = `${prescription.user_id}/${crypto.randomUUID()}.jpg`;
 
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('prescriptions')
+          .upload(newPath, compressedBlob, {
+            contentType: 'image/jpeg',
+            cacheControl: '3600',
+          });
 
-      // Xóa ảnh cũ trong Storage nếu có
-      if (prescription.image_path) {
-        await supabase.storage.from('prescriptions').remove([prescription.image_path]);
+        if (uploadError) throw uploadError;
+        newPaths.push(newPath);
       }
 
-      // Cập nhật đường dẫn trong database
+      const updatedPaths = [...currentPaths, ...newPaths];
+
       const { error: updateError } = await supabase
         .from('prescriptions')
-        .update({ image_path: newPath })
+        .update({
+          image_paths: updatedPaths,
+          image_path: updatedPaths[0] || null,
+        })
         .eq('id', prescriptionId);
 
       if (updateError) throw updateError;
 
       await fetchPrescription();
+      setActivePhotoIndex(updatedPaths.length - 1);
     } catch (err: any) {
-      console.error('Lỗi khi thay ảnh:', err);
-      setErrorMessage(err.message || 'Không thể thay đổi ảnh.');
+      console.error('Lỗi khi thêm ảnh:', err);
+      setErrorMessage(err.message || 'Không thể tải thêm ảnh lên.');
     } finally {
       setIsSaving(false);
       e.target.value = '';
     }
   };
 
-  // 4. Xóa toa thuốc (xóa ảnh trong Storage trước, rồi xóa row)
+  // 4. Xóa 1 ảnh trong toa
+  const handleRemoveSinglePhoto = async (indexToRemove: number) => {
+    if (!prescription) return;
+    const currentPaths = Array.isArray(prescription.image_paths) ? prescription.image_paths : [];
+    if (currentPaths.length <= 1) {
+      alert('Toa thuốc cần có ít nhất 1 ảnh. Nếu muốn xóa cả toa, hãy bấm nút Xóa toa ở trên góc.');
+      return;
+    }
+
+    const confirmRemove = window.confirm(`Bạn có chắc muốn xóa ảnh #${indexToRemove + 1} này không?`);
+    if (!confirmRemove) return;
+
+    setIsSaving(true);
+    try {
+      const pathToDelete = currentPaths[indexToRemove];
+      // Xóa trong Storage
+      if (pathToDelete) {
+        await supabase.storage.from('prescriptions').remove([pathToDelete]);
+      }
+
+      const updatedPaths = currentPaths.filter((_, i) => i !== indexToRemove);
+      await supabase
+        .from('prescriptions')
+        .update({
+          image_paths: updatedPaths,
+          image_path: updatedPaths[0] || null,
+        })
+        .eq('id', prescriptionId);
+
+      await fetchPrescription();
+      setActivePhotoIndex(Math.max(0, indexToRemove - 1));
+    } catch (err: any) {
+      console.error('Lỗi khi xóa ảnh:', err);
+      setErrorMessage('Không thể xóa ảnh này.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // 5. Xóa toàn bộ toa thuốc (xóa tất cả ảnh trong Storage rồi xóa dòng)
   const handleDelete = async () => {
     if (!prescription) return;
     const confirmDelete = window.confirm(
-      `Bạn có chắc chắn muốn xóa toa thuốc của khách hàng "${prescription.customer_name}" không?`
+      `Bạn có chắc chắn muốn xóa toàn bộ toa thuốc của khách hàng "${prescription.customer_name}" không?`
     );
     if (!confirmDelete) return;
 
     setIsDeleting(true);
     try {
-      // Xóa ảnh trong Storage
-      if (prescription.image_path) {
-        await supabase.storage.from('prescriptions').remove([prescription.image_path]);
+      const pathsToDelete = Array.isArray(prescription.image_paths) && prescription.image_paths.length > 0
+        ? prescription.image_paths
+        : prescription.image_path
+        ? [prescription.image_path]
+        : [];
+
+      if (pathsToDelete.length > 0) {
+        await supabase.storage.from('prescriptions').remove(pathsToDelete);
       }
 
-      // Xóa bản ghi trong database
       const { error } = await supabase
         .from('prescriptions')
         .delete()
@@ -224,16 +334,28 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
     );
   }
 
+  const currentSignedUrl = signedImageUrls[activePhotoIndex] || signedImageUrls[0] || null;
+
   return (
     <div className="min-h-screen bg-slate-50 pb-28">
-      {/* Input thay ảnh ẩn */}
+      {/* Input ẩn để chụp thêm ảnh bằng camera */}
       <input
-        ref={replacePhotoInputRef}
+        ref={addCameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={handleReplacePhoto}
+        onChange={handleAddPhotos}
+      />
+
+      {/* Input ẩn để chọn thêm nhiều ảnh từ bộ sưu tập */}
+      <input
+        ref={addGalleryInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleAddPhotos}
       />
 
       {/* Header điều hướng */}
@@ -300,12 +422,12 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
           </div>
         )}
 
-        {/* Khung ảnh toa thuốc */}
+        {/* Khung ảnh toa thuốc chính */}
         <div className="relative rounded-2xl overflow-hidden bg-slate-900 shadow-md border border-slate-200 aspect-video flex items-center justify-center">
-          {signedImageUrl ? (
+          {currentSignedUrl ? (
             <img
-              src={signedImageUrl}
-              alt="Toa thuốc"
+              src={currentSignedUrl}
+              alt={`Ảnh toa thuốc #${activePhotoIndex + 1}`}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -315,7 +437,14 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
             </div>
           )}
 
-          {signedImageUrl && (
+          {/* Đếm số trang ảnh */}
+          {signedImageUrls.length > 0 && (
+            <div className="absolute top-2.5 right-2.5 px-2.5 py-1 bg-black/60 text-white rounded-full text-xs font-medium backdrop-blur-md">
+              Ảnh {activePhotoIndex + 1} / {signedImageUrls.length}
+            </div>
+          )}
+
+          {currentSignedUrl && (
             <button
               type="button"
               onClick={() => setShowImageModal(true)}
@@ -325,23 +454,87 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
               Xem toàn màn hình
             </button>
           )}
+        </div>
 
-          {/* Nút thay ảnh nhanh */}
-          <button
-            type="button"
-            onClick={() => replacePhotoInputRef.current?.click()}
-            className="absolute top-2.5 right-2.5 p-2 bg-black/60 hover:bg-black/80 text-white rounded-xl backdrop-blur-md flex items-center gap-1 text-xs font-medium active-press"
-            title="Chụp hoặc chọn ảnh mới"
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Thay ảnh</span>
-          </button>
+        {/* Danh sách các ảnh thumbnail kèm nút THÊM ẢNH BỔ SUNG */}
+        <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-slate-700">
+              Hình ảnh toa thuốc ({signedImageUrls.length}/{MAX_PHOTOS} ảnh)
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Chụp thêm mặt sau hoặc toa bổ sung
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 smooth-scroll">
+            {signedImageUrls.map((url, index) => (
+              <div
+                key={index}
+                onClick={() => setActivePhotoIndex(index)}
+                className={`relative shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${
+                  index === activePhotoIndex
+                    ? 'border-blue-600 ring-2 ring-blue-500/30'
+                    : 'border-slate-200 opacity-70 hover:opacity-100'
+                }`}
+              >
+                <img
+                  src={url}
+                  alt={`Ảnh ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] text-center font-bold">
+                  #{index + 1}
+                </span>
+
+                {signedImageUrls.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveSinglePhoto(index);
+                    }}
+                    className="absolute top-0.5 right-0.5 p-0.5 bg-red-600 text-white rounded-full hover:bg-red-700"
+                    title="Xóa ảnh này"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {/* Nút thêm ảnh vào toa này */}
+            {signedImageUrls.length < MAX_PHOTOS && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => addCameraInputRef.current?.click()}
+                  disabled={isSaving}
+                  className="w-16 h-16 rounded-xl border border-dashed border-blue-400 bg-blue-50/50 hover:bg-blue-100/60 text-blue-600 flex flex-col items-center justify-center gap-1 active-press disabled:opacity-50"
+                  title="Chụp thêm ảnh bằng camera"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span className="text-[10px] font-bold">+ Chụp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => addGalleryInputRef.current?.click()}
+                  disabled={isSaving}
+                  className="w-16 h-16 rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-500 flex flex-col items-center justify-center gap-1 active-press disabled:opacity-50"
+                  title="Chọn thêm ảnh từ máy"
+                >
+                  <ImageIcon className="w-5 h-5" />
+                  <span className="text-[10px] font-medium">+ Chọn</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Khối thông tin chi tiết */}
         <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-100 space-y-4">
           {isEditing ? (
-            // Form chỉnh sửa
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
@@ -403,7 +596,6 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
               </div>
             </div>
           ) : (
-            // Hiển thị đọc
             <div className="space-y-4">
               <div>
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -471,10 +663,75 @@ export const Detail: React.FC<DetailProps> = ({ prescriptionId, onBack, onDelete
             </div>
           )}
         </div>
+
+        {/* KHỐI LỊCH SỬ CÁC TOA KHÁC CỦA KHÁCH HÀNG NÀY (Cách 3) */}
+        <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <History className="w-4 h-4 text-blue-600" />
+              Lịch sử các lần khám khác ({historyItems.length})
+            </h3>
+          </div>
+
+          {loadingHistory ? (
+            <p className="text-xs text-slate-400 py-2 text-center animate-pulse">
+              Đang tải lịch sử...
+            </p>
+          ) : historyItems.length === 0 ? (
+            <p className="text-xs text-slate-400 py-3 text-center bg-slate-50 rounded-xl">
+              Khách hàng này chưa có toa thuốc nào khác trong hệ thống.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {historyItems.map((item) => {
+                const medCount = Array.isArray(item.medicines) ? item.medicines.length : 0;
+                const imgCount = Array.isArray(item.image_paths) && item.image_paths.length > 0
+                  ? item.image_paths.length
+                  : item.image_path ? 1 : 0;
+
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => onSelectOtherPrescription ? onSelectOtherPrescription(item.id) : null}
+                    className="p-3 bg-slate-50 hover:bg-blue-50/50 rounded-xl border border-slate-100 cursor-pointer active-press flex items-center justify-between transition-all"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-800">
+                          {new Date(item.created_at).toLocaleDateString('vi-VN')}
+                        </span>
+                        {medCount > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-100/60 px-2 py-0.5 rounded-md">
+                            <Pill className="w-3 h-3" />
+                            {medCount} thuốc
+                          </span>
+                        )}
+                        {imgCount > 1 && (
+                          <span className="text-[10px] text-slate-500 bg-slate-200/60 px-1.5 py-0.5 rounded">
+                            {imgCount} ảnh
+                          </span>
+                        )}
+                      </div>
+                      {item.note && (
+                        <p className="text-[11px] text-slate-500 mt-1 truncate">
+                          Ghi chú: {item.note}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="text-slate-400 pl-2">
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       <ImageViewerModal
-        imageUrl={showImageModal ? signedImageUrl : null}
+        imageUrl={showImageModal ? currentSignedUrl : null}
         onClose={() => setShowImageModal(false)}
       />
     </div>

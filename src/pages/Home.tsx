@@ -208,6 +208,11 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
                           {medCount} loại thuốc
                         </span>
                       )}
+                      {Array.isArray(item.image_paths) && item.image_paths.length > 1 && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+                          📷 {item.image_paths.length} ảnh
+                        </span>
+                      )}
                       {item.address && (
                         <span className="text-[11px] text-slate-500 truncate max-w-[200px]">
                           📍 {item.address}

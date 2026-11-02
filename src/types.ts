@@ -14,7 +14,8 @@ export interface Prescription {
   birth_date: string | null;    // Ngày sinh YYYY-MM-DD
   address: string | null;       // Địa chỉ
   medicines: MedicineItem[];    // Danh sách thuốc trong đơn
-  image_path: string | null;    // Đường dẫn ảnh trong Supabase Storage
+  image_path: string | null;    // Đường dẫn ảnh đại diện chính trong Storage
+  image_paths: string[];        // Danh sách tất cả các ảnh của toa (tối đa 20 ảnh)
   note: string | null;          // Ghi chú thêm
   created_at: string;           // Thời điểm tạo
 }
@@ -26,3 +27,4 @@ export interface ScanResult {
   address: string | null;
   medicines: MedicineItem[];
 }
+

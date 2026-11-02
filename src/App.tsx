@@ -79,8 +79,12 @@ export const App: React.FC = () => {
             setSelectedPrescriptionId(null);
             setCurrentView('home');
           }}
+          onSelectOtherPrescription={(id) => {
+            setSelectedPrescriptionId(id);
+          }}
         />
       )}
     </div>
   );
 };
+
