@@ -8,7 +8,7 @@ interface ScanButtonProps {
 
 /**
  * Nút chụp toa thuốc và chọn ảnh từ thư viện
- * Dùng thẻ input file với capture="environment" để mở trực tiếp camera sau của điện thoại
+ * Kích thước vừa vặn (Medium), thiết kế hiện đại, dễ thao tác
  */
 export const ScanButton: React.FC<ScanButtonProps> = ({ onPhotoSelected, disabled }) => {
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -18,13 +18,12 @@ export const ScanButton: React.FC<ScanButtonProps> = ({ onPhotoSelected, disable
     const file = e.target.files?.[0];
     if (file) {
       onPhotoSelected(file);
-      // Reset input để có thể chụp lại cùng 1 file nếu cần
       e.target.value = '';
     }
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white/95 to-transparent backdrop-blur-sm z-30 max-w-lg mx-auto">
+    <div className="fixed bottom-0 left-0 right-0 p-3 pb-4 bg-gradient-to-t from-white via-white/95 to-transparent backdrop-blur-sm z-30 max-w-lg mx-auto">
       {/* Input ẩn để kích hoạt camera sau */}
       <input
         ref={cameraInputRef}
@@ -46,32 +45,32 @@ export const ScanButton: React.FC<ScanButtonProps> = ({ onPhotoSelected, disable
         disabled={disabled}
       />
 
-      <div className="flex items-center gap-3">
-        {/* Nút chụp toa thuốc chính - to, dễ bấm bằng ngón cái */}
+      <div className="flex items-center gap-2.5">
+        {/* Nút chụp toa thuốc chính - Kích thước Medium thanh lịch */}
         <button
           type="button"
           onClick={() => cameraInputRef.current?.click()}
           disabled={disabled}
-          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-2xl shadow-lg shadow-blue-500/30 active-press disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-5 rounded-xl shadow-md shadow-blue-500/25 active-press disabled:opacity-50 text-sm"
         >
-          <Camera className="w-6 h-6" />
-          <span className="text-lg">Chụp toa thuốc</span>
+          <Camera className="w-5 h-5" />
+          <span>Chụp toa thuốc</span>
         </button>
 
-        {/* Nút chọn ảnh phụ từ bộ sưu tập */}
+        {/* Nút chọn ảnh phụ từ bộ sưu tập - Medium */}
         <button
           type="button"
           onClick={() => galleryInputRef.current?.click()}
           disabled={disabled}
           title="Chọn ảnh từ máy"
-          className="p-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl active-press disabled:opacity-50 border border-slate-200"
+          className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl active-press disabled:opacity-50 border border-slate-200"
         >
-          <ImageIcon className="w-6 h-6" />
+          <ImageIcon className="w-5 h-5" />
         </button>
       </div>
 
-      <p className="text-center text-xs text-slate-400 mt-2 font-medium">
-        Đặt toa phẳng, đủ sáng, chụp rõ chữ
+      <p className="text-center text-[11px] text-slate-400 mt-1.5 font-normal">
+        Chụp đủ sáng • Tự động nén siêu nhẹ để tiết kiệm bộ nhớ
       </p>
     </div>
   );

@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { normalizeName } from '../lib/normalizeName';
-import { Prescription } from '../types';
+import { Prescription, StorageStats } from '../types';
 import { ScanButton } from '../components/ScanButton';
+import { StorageStatsModal } from '../components/StorageStatsModal';
 import {
   Search,
   X,
@@ -10,7 +11,8 @@ import {
   Calendar,
   ChevronRight,
   RefreshCw,
-  FileText
+  FileText,
+  HardDrive
 } from 'lucide-react';
 
 interface HomeProps {
@@ -28,6 +30,20 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+
+  // Bộ nhớ Supabase
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+  const [showStatsModal, setShowStatsModal] = useState(false);
+
+  // Tải thống kê dung lượng bộ nhớ Supabase
+  const loadStats = useCallback(async () => {
+    try {
+      const { data } = await supabase.rpc('get_storage_stats');
+      if (data) setStorageStats(data);
+    } catch (err) {
+      console.warn('Lỗi tải dung lượng bộ nhớ:', err);
+    }
+  }, []);
 
   // 1. Tải danh sách toa thuốc từ Supabase
   const loadPrescriptions = useCallback(
@@ -62,6 +78,9 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
         }
 
         setHasMore(items.length === PAGE_SIZE);
+
+        // Cập nhật lại dung lượng bộ nhớ
+        loadStats();
       } catch (err: any) {
         console.error('Lỗi khi tải danh sách toa:', err);
       } finally {
@@ -108,7 +127,18 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {/* Nút xem dung lượng bộ nhớ Supabase */}
+            <button
+              type="button"
+              onClick={() => setShowStatsModal(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 rounded-xl text-slate-700 text-xs font-medium active-press border border-slate-200/50"
+              title="Xem dung lượng bộ nhớ đã sử dụng"
+            >
+              <HardDrive className="w-3.5 h-3.5 text-blue-600" />
+              <span>{storageStats ? `${storageStats.storage_mb} MB` : 'Bộ nhớ'}</span>
+            </button>
+
             <button
               onClick={() => loadPrescriptions(0, searchTerm, true)}
               disabled={refreshing}
@@ -253,6 +283,14 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
 
       {/* Nút chụp toa thuốc to dễ bấm */}
       <ScanButton onPhotoSelected={onPhotoSelected} />
+
+      {/* Hộp thoại thông tin dung lượng bộ nhớ Supabase */}
+      {showStatsModal && (
+        <StorageStatsModal
+          stats={storageStats}
+          onClose={() => setShowStatsModal(false)}
+        />
+      )}
     </div>
   );
 };

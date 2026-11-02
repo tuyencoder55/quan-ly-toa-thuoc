@@ -30,3 +30,15 @@ export interface ScanResult {
   medicines: MedicineItem[];
 }
 
+// Thống kê dung lượng bộ nhớ Supabase
+export interface StorageStats {
+  total_prescriptions: number;
+  total_images: number;
+  storage_bytes: number;
+  storage_mb: number;
+  storage_limit_mb: number;
+  db_bytes: number;
+  db_mb: number;
+  db_limit_mb: number;
+}
+
