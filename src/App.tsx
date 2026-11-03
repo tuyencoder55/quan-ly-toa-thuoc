@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from './lib/AuthContext';
+import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import { Confirm } from './pages/Confirm';
 import { Detail } from './pages/Detail';
-import { RefreshCw, WifiOff } from 'lucide-react';
 
 type ViewMode = 'home' | 'confirm' | 'detail';
 
@@ -24,26 +24,9 @@ export const App: React.FC = () => {
     );
   }
 
-  // Nếu gặp lỗi mạng không kết nối được tài khoản ngầm, hiện màn hình thử lại
+  // Nếu chưa đăng nhập, hiển thị màn hình Đăng nhập / Đăng ký
   if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4">
-          <WifiOff className="w-7 h-7" />
-        </div>
-        <h2 className="text-base font-bold text-slate-800">Không thể kết nối máy chủ</h2>
-        <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-          Vui lòng kiểm tra lại kết nối mạng trên điện thoại và bấm thử lại.
-        </p>
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-5 flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-blue-500/20 active-press"
-        >
-          <RefreshCw className="w-4 h-4" />
-          <span>Thử lại</span>
-        </button>
-      </div>
-    );
+    return <Login />;
   }
 
   // Điều hướng các màn hình
@@ -74,7 +57,6 @@ export const App: React.FC = () => {
             setCurrentView('home');
           }}
           onRetake={() => {
-            // Mở lại camera bằng cách click nút ẩn hoặc quay về home
             setSelectedPhotoFile(null);
             setCurrentView('home');
           }}
@@ -104,4 +86,3 @@ export const App: React.FC = () => {
     </div>
   );
 };
-

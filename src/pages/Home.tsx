@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import { normalizeName } from '../lib/normalizeName';
 import { Prescription, StorageStats } from '../types';
@@ -12,7 +13,8 @@ import {
   ChevronRight,
   RefreshCw,
   FileText,
-  HardDrive
+  HardDrive,
+  LogOut
 } from 'lucide-react';
 
 interface HomeProps {
@@ -23,6 +25,8 @@ interface HomeProps {
 const PAGE_SIZE = 20;
 
 export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescription }) => {
+  const { user, signOut } = useAuth();
+
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,7 +39,7 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
   const [showStatsModal, setShowStatsModal] = useState(false);
 
-  // Tải thống kê dung lượng bộ nhớ Supabase
+  // Tải thống kê dung lượng bộ nhớ Supabase (riêng cho tài khoản đang đăng nhập)
   const loadStats = useCallback(async () => {
     try {
       const { data } = await supabase.rpc('get_storage_stats');
@@ -45,7 +49,7 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
     }
   }, []);
 
-  // 1. Tải danh sách toa thuốc từ Supabase
+  // 1. Tải danh sách toa thuốc từ Supabase (RLS tự động lọc chỉ toa của user đang đăng nhập)
   const loadPrescriptions = useCallback(
     async (pageIndex: number, search: string, isRefresh = false) => {
       if (pageIndex === 0) setLoading(true);
@@ -88,7 +92,7 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
         setRefreshing(false);
       }
     },
-    []
+    [loadStats]
   );
 
   // 2. Debounce tìm kiếm 250ms
@@ -108,37 +112,44 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
     loadPrescriptions(nextPage, searchTerm);
   };
 
+  const handleLogout = async () => {
+    if (window.confirm('Bạn có chắc chắn muốn đăng xuất khỏi tài khoản này?')) {
+      await signOut();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-36">
       {/* Header trang chủ */}
       <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3">
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
               <Pill className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h1 className="font-bold text-base text-slate-900 leading-tight">
-                Sổ Toa Thuốc
+                Toa Thuốc
               </h1>
-              <p className="text-[11px] text-slate-400">
-                Lưu trữ & tra cứu bằng AI
+              <p className="text-[11px] text-slate-400 truncate max-w-[170px]" title={user?.email}>
+                {user?.email || 'Tài khoản cá nhân'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             {/* Nút xem dung lượng bộ nhớ Supabase */}
             <button
               type="button"
               onClick={() => setShowStatsModal(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 rounded-xl text-slate-700 text-xs font-medium active-press border border-slate-200/50"
+              className="flex items-center gap-1.5 px-2 py-1.5 bg-slate-100 hover:bg-slate-200/80 rounded-xl text-slate-700 text-xs font-medium active-press border border-slate-200/50"
               title="Xem dung lượng bộ nhớ đã sử dụng"
             >
               <HardDrive className="w-3.5 h-3.5 text-blue-600" />
               <span>{storageStats ? `${storageStats.storage_mb} MB` : 'Bộ nhớ'}</span>
             </button>
 
+            {/* Nút làm mới danh sách */}
             <button
               onClick={() => loadPrescriptions(0, searchTerm, true)}
               disabled={refreshing}
@@ -147,10 +158,19 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
+
+            {/* Nút đăng xuất */}
+            <button
+              onClick={handleLogout}
+              className="p-2 text-slate-400 hover:text-red-600 rounded-full active-press"
+              title="Đăng xuất tài khoản"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
-        {/* Thanh tìm kiếm tức thì theo tên khách hàng */}
+        {/* Thanh tìm kiếm tức thì theo tên khách hàng hoặc SĐT */}
         <div className="max-w-lg mx-auto mt-3">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -205,8 +225,8 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
             </p>
             <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
               {searchTerm
-                ? 'Thử tìm bằng từ khóa hoặc họ tên khác'
-                : 'Bấm nút "Chụp toa thuốc" bên dưới để lưu toa đầu tiên'}
+                ? 'Thử tìm bằng từ khóa hoặc số điện thoại khác'
+                : 'Bấm nút "Chụp toa thuốc" bên dưới để lưu toa đầu tiên của bạn'}
             </p>
           </div>
         ) : (
@@ -281,7 +301,7 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
         )}
       </main>
 
-      {/* Nút chụp toa thuốc to dễ bấm */}
+      {/* Nút chụp toa thuốc vừa vặn (Medium) */}
       <ScanButton onPhotoSelected={onPhotoSelected} />
 
       {/* Hộp thoại thông tin dung lượng bộ nhớ Supabase */}
@@ -294,4 +314,3 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
     </div>
   );
 };
-
