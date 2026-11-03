@@ -1,26 +1,22 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Pill, Lock, Mail, ArrowRight, ShieldCheck, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
+import { Pill, Lock, User, ArrowRight, ShieldCheck, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 export const Login: React.FC = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setSuccessMessage(null);
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail) {
-      setErrorMessage('Vui lòng nhập địa chỉ email.');
+    const cleanUser = username.trim().toLowerCase();
+    if (!cleanUser) {
+      setErrorMessage('Vui lòng nhập tên đăng nhập.');
       return;
     }
 
@@ -29,51 +25,26 @@ export const Login: React.FC = () => {
       return;
     }
 
-    if (isSignUp && password !== confirmPassword) {
-      setErrorMessage('Mật khẩu xác nhận không khớp.');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        // Đăng ký tài khoản mới (đã có trigger auto-confirm trong DB nên vào thẳng được luôn)
-        const { error: signUpError, data } = await supabase.auth.signUp({
-          email: cleanEmail,
-          password,
-        });
+      // Chuyển username thành định dạng email nội bộ của Supabase Auth: username@toathuoc.local
+      // Nếu người dùng nhập email có sẵn (ví dụ email test trước đó), giữ nguyên
+      const mappedEmail = cleanUser.includes('@') ? cleanUser : `${cleanUser}@toathuoc.local`;
 
-        if (signUpError) {
-          if (signUpError.message.includes('already registered')) {
-            throw new Error('Email này đã được đăng ký. Vui lòng chuyển sang tab Đăng nhập.');
-          }
-          throw signUpError;
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: mappedEmail,
+        password,
+      });
+
+      if (signInError) {
+        if (
+          signInError.message.includes('Invalid login credentials') ||
+          signInError.message.includes('invalid_credentials')
+        ) {
+          throw new Error('Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.');
         }
-
-        // Tự động đăng nhập luôn sau khi đăng ký
-        if (!data.session) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password,
-          });
-          if (signInError) throw signInError;
-        }
-
-        setSuccessMessage('Đăng ký thành công! Đang chuyển vào ứng dụng...');
-      } else {
-        // Đăng nhập
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password,
-        });
-
-        if (signInError) {
-          if (signInError.message.includes('Invalid login credentials')) {
-            throw new Error('Email hoặc mật khẩu không chính xác. Vui lòng thử lại.');
-          }
-          throw signInError;
-        }
+        throw signInError;
       }
     } catch (err: any) {
       console.error('Lỗi xác thực:', err);
@@ -94,78 +65,42 @@ export const Login: React.FC = () => {
           Quản Lý Toa Thuốc
         </h1>
         <p className="mt-1 text-xs text-slate-500 max-w-xs mx-auto">
-          Dữ liệu riêng tư & an toàn tuyệt đối cho từng người dùng
+          Hệ thống lưu trữ & tra cứu toa thuốc cá nhân an toàn
         </p>
       </div>
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-7 px-6 shadow-sm border border-slate-200/80 rounded-3xl sm:px-8">
-          {/* Tab chuyển đổi Đăng nhập / Đăng ký */}
-          <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl mb-5">
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(false);
-                setErrorMessage(null);
-                setSuccessMessage(null);
-              }}
-              className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                !isSignUp
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Đăng nhập</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsSignUp(true);
-                setErrorMessage(null);
-                setSuccessMessage(null);
-              }}
-              className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
-                isSignUp
-                  ? 'bg-white text-blue-600 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Đăng ký mới</span>
-            </button>
+          <div className="mb-5 text-center">
+            <h2 className="text-base font-bold text-slate-800">Đăng Nhập Tài Khoản</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Nhập tên đăng nhập và mật khẩu được cấp</p>
           </div>
 
-          <form className="space-y-3.5" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             {errorMessage && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2 animate-in fade-in">
-                <span>{errorMessage}</span>
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2 animate-in fade-in">
+                <span className="font-medium">{errorMessage}</span>
               </div>
             )}
 
-            {successMessage && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 animate-in fade-in">
-                <span>{successMessage}</span>
-              </div>
-            )}
-
-            {/* Email */}
+            {/* Tên đăng nhập */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Email
+                Tên đăng nhập
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                  <Mail className="w-4 h-4" />
+                  <User className="w-4 h-4" />
                 </div>
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nhanvien@phongkham.com"
-                  className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Ví dụ: admin hoặc tên đồng nghiệp"
+                  className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 transition-colors"
                 />
               </div>
             </div>
@@ -184,8 +119,8 @@ export const Login: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Tối thiểu 6 ký tự"
-                  className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900"
+                  placeholder="Nhập mật khẩu"
+                  className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 transition-colors"
                 />
                 <button
                   type="button"
@@ -197,42 +132,31 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
-            {/* Xác nhận mật khẩu nếu là Đăng ký */}
-            {isSignUp && (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Nhập lại mật khẩu
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Nhập lại mật khẩu ở trên"
-                    className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900"
-                  />
-                </div>
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-3 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active-press disabled:opacity-50 transition-all"
+              className="w-full mt-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active-press disabled:opacity-50 transition-all"
             >
-              <span>{loading ? 'Đang xử lý...' : isSignUp ? 'Đăng ký tài khoản' : 'Đăng nhập'}</span>
+              <span>{loading ? 'Đang xác thực...' : 'Đăng nhập vào hệ thống'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
 
+          {/* Hướng dẫn khi chưa có tài khoản hoặc quên mật khẩu */}
+          <div className="mt-5 p-3 bg-slate-50 border border-slate-200/60 rounded-xl flex items-start gap-2.5 text-xs text-slate-500">
+            <KeyRound className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-slate-700">Tài khoản nội bộ:</span>
+              <p className="mt-0.5 text-[11px] text-slate-500 leading-relaxed">
+                Tài khoản do Quản trị viên cấp. Nếu bạn chưa có tài khoản hoặc quên mật khẩu, vui lòng liên hệ Admin để được cấp lại.
+              </p>
+            </div>
+          </div>
+
           {/* Cam kết bảo mật riêng tư */}
           <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Toa thuốc của bạn chỉ có bạn mới xem được (RLS)</span>
+            <span>Toa thuốc của ai chỉ người đó xem được (RLS bảo mật)</span>
           </div>
         </div>
       </div>

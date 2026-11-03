@@ -42,3 +42,17 @@ export interface StorageStats {
   db_limit_mb: number;
 }
 
+// Thông tin tài khoản người dùng hiển thị cho Admin
+export interface AdminUserItem {
+  id: string;
+  username: string;
+  full_name: string;
+  role: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  prescription_count: number;
+  storage_bytes: number;
+  storage_mb: number;
+}
+
+

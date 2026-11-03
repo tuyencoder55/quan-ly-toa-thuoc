@@ -5,6 +5,8 @@ import { normalizeName } from '../lib/normalizeName';
 import { Prescription, StorageStats } from '../types';
 import { ScanButton } from '../components/ScanButton';
 import { StorageStatsModal } from '../components/StorageStatsModal';
+import { AdminModal } from '../components/AdminModal';
+import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import {
   Search,
   X,
@@ -14,7 +16,9 @@ import {
   RefreshCw,
   FileText,
   HardDrive,
-  LogOut
+  LogOut,
+  Shield,
+  KeyRound
 } from 'lucide-react';
 
 interface HomeProps {
@@ -38,6 +42,28 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
   // Bộ nhớ Supabase
   const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
   const [showStatsModal, setShowStatsModal] = useState(false);
+
+  // Quyền Admin và các Modal quản trị
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+
+  // Kiểm tra quyền Admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user?.user_metadata?.role === 'admin' || user?.email === 'admin@toathuoc.local') {
+        setIsAdmin(true);
+        return;
+      }
+      try {
+        const { data } = await supabase.rpc('is_admin');
+        if (data) setIsAdmin(true);
+      } catch (err) {
+        console.warn('Lỗi kiểm tra quyền admin:', err);
+      }
+    };
+    if (user) checkAdmin();
+  }, [user]);
 
   // Tải thống kê dung lượng bộ nhớ Supabase (riêng cho tài khoản đang đăng nhập)
   const loadStats = useCallback(async () => {
@@ -118,6 +144,9 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
     }
   };
 
+  const rawUsername = user?.user_metadata?.username || (user?.email?.endsWith('@toathuoc.local') ? user.email.replace('@toathuoc.local', '') : user?.email?.split('@')[0]) || 'user';
+  const displayName = user?.user_metadata?.full_name || rawUsername;
+
   return (
     <div className="min-h-screen bg-slate-50 pb-36">
       {/* Header trang chủ */}
@@ -128,16 +157,46 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
               <Pill className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-bold text-base text-slate-900 leading-tight">
-                Toa Thuốc
-              </h1>
+              <div className="flex items-center gap-1.5">
+                <h1 className="font-bold text-sm sm:text-base text-slate-900 leading-tight truncate">
+                  {displayName}
+                </h1>
+                {isAdmin && (
+                  <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5">
+                    <Shield className="w-2.5 h-2.5" /> Admin
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-slate-400 truncate max-w-[170px]" title={user?.email}>
-                {user?.email || 'Tài khoản cá nhân'}
+                @{rawUsername}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-1">
+            {/* Nút Quản trị cho Admin */}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setShowAdminModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-xl text-xs font-semibold active-press transition-colors"
+                title="Quản trị tài khoản đồng nghiệp"
+              >
+                <Shield className="w-3.5 h-3.5 text-purple-600" />
+                <span className="hidden sm:inline">Quản trị</span>
+              </button>
+            )}
+
+            {/* Nút Đổi mật khẩu cá nhân */}
+            <button
+              type="button"
+              onClick={() => setShowChangePasswordModal(true)}
+              className="p-2 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 active-press transition-colors"
+              title="Đổi mật khẩu cá nhân"
+            >
+              <KeyRound className="w-4 h-4 text-slate-600" />
+            </button>
+
             {/* Nút xem dung lượng bộ nhớ Supabase */}
             <button
               type="button"
@@ -311,6 +370,19 @@ export const Home: React.FC<HomeProps> = ({ onPhotoSelected, onSelectPrescriptio
           onClose={() => setShowStatsModal(false)}
         />
       )}
+
+      {/* Hộp thoại đổi mật khẩu cá nhân */}
+      <ChangePasswordModal
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
+      />
+
+      {/* Hộp thoại Quản trị hệ thống (Admin) */}
+      <AdminModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        currentUserId={user?.id}
+      />
     </div>
   );
 };
