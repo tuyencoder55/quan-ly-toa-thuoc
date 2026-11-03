@@ -1,22 +1,29 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Pill, Lock, User, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Pill, Lock, User, ArrowRight, ShieldCheck, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
 
 export const Login: React.FC = () => {
+  const [isSignUp, setIsSignUp] = useState(false);
+
+  // Form fields
   const [username, setUsername] = useState('');
+  const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+    setSuccessMessage(null);
 
-    const cleanUser = username.trim().toLowerCase();
-    if (!cleanUser) {
-      setErrorMessage('Vui lòng nhập tên đăng nhập.');
+    const cleanUser = username.trim().toLowerCase().replace(/\s+/g, '');
+    if (!cleanUser || cleanUser.length < 2) {
+      setErrorMessage('Tên đăng nhập phải có ít nhất 2 ký tự (viết liền không dấu).');
       return;
     }
 
@@ -25,26 +32,70 @@ export const Login: React.FC = () => {
       return;
     }
 
+    if (isSignUp && password !== confirmPassword) {
+      setErrorMessage('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Chuyển username thành định dạng email nội bộ của Supabase Auth: username@toathuoc.local
+      // Ánh xạ username sang email ảo nội bộ: username@toathuoc.local
       // Nếu người dùng nhập email có sẵn (ví dụ email test trước đó), giữ nguyên
       const mappedEmail = cleanUser.includes('@') ? cleanUser : `${cleanUser}@toathuoc.local`;
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: mappedEmail,
-        password,
-      });
+      if (isSignUp) {
+        // Đăng ký tài khoản mới
+        const cleanName = fullName.trim() || cleanUser;
 
-      if (signInError) {
-        if (
-          signInError.message.includes('Invalid login credentials') ||
-          signInError.message.includes('invalid_credentials')
-        ) {
-          throw new Error('Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.');
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: mappedEmail,
+          password,
+          options: {
+            data: {
+              username: cleanUser,
+              full_name: cleanName,
+              role: 'user',
+            },
+          },
+        });
+
+        if (signUpError) {
+          if (
+            signUpError.message.includes('already registered') ||
+            signUpError.message.includes('User already registered')
+          ) {
+            throw new Error(`Tên đăng nhập "${cleanUser}" đã có người sử dụng. Vui lòng chọn tên khác.`);
+          }
+          throw signUpError;
         }
-        throw signInError;
+
+        // Tự động đăng nhập luôn nếu chưa có session
+        if (!data.session) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: mappedEmail,
+            password,
+          });
+          if (signInError) throw signInError;
+        }
+
+        setSuccessMessage('Đăng ký thành công! Đang chuyển vào ứng dụng...');
+      } else {
+        // Đăng nhập
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: mappedEmail,
+          password,
+        });
+
+        if (signInError) {
+          if (
+            signInError.message.includes('Invalid login credentials') ||
+            signInError.message.includes('invalid_credentials')
+          ) {
+            throw new Error('Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.');
+          }
+          throw signInError;
+        }
       }
     } catch (err: any) {
       console.error('Lỗi xác thực:', err);
@@ -71,15 +122,53 @@ export const Login: React.FC = () => {
 
       <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-7 px-6 shadow-sm border border-slate-200/80 rounded-3xl sm:px-8">
-          <div className="mb-5 text-center">
-            <h2 className="text-base font-bold text-slate-800">Đăng Nhập Tài Khoản</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Nhập tên đăng nhập và mật khẩu được cấp</p>
+          {/* Tab chuyển đổi Đăng nhập / Đăng ký */}
+          <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl mb-5">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(false);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+              }}
+              className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                !isSignUp
+                  ? 'bg-white text-blue-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Đăng nhập</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUp(true);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+              }}
+              className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                isSignUp
+                  ? 'bg-white text-blue-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Đăng ký mới</span>
+            </button>
           </div>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-3.5" onSubmit={handleSubmit}>
             {errorMessage && (
               <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2 animate-in fade-in">
                 <span className="font-medium">{errorMessage}</span>
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-start gap-2 animate-in fade-in">
+                <span className="font-medium">{successMessage}</span>
               </div>
             )}
 
@@ -98,12 +187,32 @@ export const Login: React.FC = () => {
                   autoCapitalize="none"
                   autoCorrect="off"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ví dụ: admin hoặc tên đồng nghiệp"
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/\s+/g, ''))}
+                  placeholder={isSignUp ? 'ví dụ: lan, duocsy_nam' : 'admin hoặc tên đăng nhập'}
                   className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 transition-colors"
                 />
               </div>
+              {isSignUp && (
+                <p className="text-[10px] text-slate-400 mt-1">Viết liền không dấu dùng để đăng nhập</p>
+              )}
             </div>
+
+            {/* Họ và tên (chỉ hiện khi Đăng ký) */}
+            {isSignUp && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Họ và tên hiển thị
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="ví dụ: DS. Nguyễn Thị Lan"
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 transition-colors"
+                />
+              </div>
+            )}
 
             {/* Mật khẩu */}
             <div>
@@ -119,7 +228,7 @@ export const Login: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu"
+                  placeholder="Tối thiểu 6 ký tự"
                   className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 transition-colors"
                 />
                 <button
@@ -132,12 +241,34 @@ export const Login: React.FC = () => {
               </div>
             </div>
 
+            {/* Xác nhận mật khẩu khi Đăng ký */}
+            {isSignUp && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Nhập lại mật khẩu
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Nhập lại mật khẩu ở trên"
+                    className="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-900 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active-press disabled:opacity-50 transition-all"
+              className="w-full mt-3 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25 active-press disabled:opacity-50 transition-all"
             >
-              <span>{loading ? 'Đang xác thực...' : 'Đăng nhập vào hệ thống'}</span>
+              <span>{loading ? 'Đang xử lý...' : isSignUp ? 'Tạo tài khoản mới' : 'Đăng nhập vào hệ thống'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

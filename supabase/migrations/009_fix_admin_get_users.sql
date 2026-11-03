@@ -45,3 +45,4 @@ begin
   order by u.created_at desc;
 end;
 $$;
+
