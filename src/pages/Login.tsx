@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Pill, Lock, User, ArrowRight, ShieldCheck, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { Pill, Lock, User, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -141,17 +141,6 @@ export const Login: React.FC = () => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Hướng dẫn khi chưa có tài khoản hoặc quên mật khẩu */}
-          <div className="mt-5 p-3 bg-slate-50 border border-slate-200/60 rounded-xl flex items-start gap-2.5 text-xs text-slate-500">
-            <KeyRound className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-semibold text-slate-700">Tài khoản nội bộ:</span>
-              <p className="mt-0.5 text-[11px] text-slate-500 leading-relaxed">
-                Tài khoản do Quản trị viên cấp. Nếu bạn chưa có tài khoản hoặc quên mật khẩu, vui lòng liên hệ Admin để được cấp lại.
-              </p>
-            </div>
-          </div>
 
           {/* Cam kết bảo mật riêng tư */}
           <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">

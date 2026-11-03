@@ -590,3 +590,4 @@ export const AdminModal: React.FC<AdminModalProps> = ({ isOpen, onClose, current
     </div>
   );
 };
+
